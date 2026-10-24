@@ -26,7 +26,8 @@ A web app for a GB utility's day-ahead buying team. It answers two questions usi
 - **Tail risk:** P90 absolute error 4,140 MW, P95 5,310 MW.
 - **Bias correction works out-of-sample:** subtracting the mean error of the previous 7 days (only actuals known on D-1, i.e. up to D-2) cuts MAE **18.7%** (2,003 → 1,629 MW) over 29 evaluated days.
 - **Band calibration:** the P10-P90 band contains **75%** of actuals (nominal 80%), so it is slightly narrow. A 7-day band window scored 69%, so band widths use all history available at decision time.
-- **Cutoff sensitivity:** accuracy barely changes between 05:00 and 12:00, because few forecast runs land in that gap. This view is informational; a cutoff after gate closure is not actionable.
+- **Cutoff sensitivity** (API only, `/api/metrics/cutoff-sensitivity`): accuracy barely changes between 05:00 and 12:00, because few forecast runs land in that gap. A cutoff after gate closure is not actionable.
+- **Bias correction is not a guaranteed win:** it improves the month overall, but can be worse on some weeks (e.g. 2-8 Jan, when little history exists). The UI says so when it happens.
 
 ## Run it
 
@@ -76,8 +77,8 @@ backend/app/
 backend/data/             Cached Elexon data (FUELHH wind actuals, WINDFOR forecasts)
 backend/tests/            Pytest suite (selection rule, metrics, no-look-ahead, API)
 frontend/src/             React + TypeScript (Vite, Tailwind)
-  components/DecisionBrief.tsx   Per-day view: forecast available at cutoff, corrected view, band
-  components/RiskCards.tsx       Tail-error and backtest cards
+  components/DecisionBrief.tsx   "Tomorrow's decision": forecast available at the cutoff, adjusted forecast, likely range
+  components/AccuracyView.tsx    "How accurate is it?": plain-English error summary, daily error chart
 scripts/ingest.py         Elexon → JSON cache (chunked ≤7 days, retries, validation)
 scripts/explore.py        Data exploration
 docs/                     Data findings; video script

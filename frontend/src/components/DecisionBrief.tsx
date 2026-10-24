@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchDecisionBrief } from '../api';
 import { DecisionBrief as DecisionBriefData } from '../types';
+import { Card, ErrorBanner, Skeleton, Stat, fmtDay, fmtMW, fmtUtc } from './ui';
 
 const MIN_DATE = '2026-01-02';
 const MAX_DATE = '2026-02-01';
@@ -10,15 +11,7 @@ const W = 900;
 const H = 320;
 const M = { top: 16, right: 16, bottom: 34, left: 56 };
 
-const fmtMW = (n: number | null | undefined) =>
-  n === null || n === undefined ? '–' : Math.round(n).toLocaleString('en-GB');
-
-const fmtUtc = (iso: string | null) =>
-  iso
-    ? new Date(iso).toLocaleString('en-GB', {
-        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-      }) + ' UTC'
-    : '–';
+const COLORS = { forecast: '#2563eb', adjusted: '#059669', actual: '#0f172a' };
 
 const shiftDate = (iso: string, days: number): string => {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -26,16 +19,14 @@ const shiftDate = (iso: string, days: number): string => {
   return d.toISOString().slice(0, 10);
 };
 
-interface Props {
-  cutoffTime: string;
-}
+const mean = (xs: number[]): number | null => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 
-export const DecisionBrief: React.FC<Props> = ({ cutoffTime }) => {
+export const DecisionBrief: React.FC<{ cutoffTime: string }> = ({ cutoffTime }) => {
   const [date, setDate] = useState<string>('2026-01-15');
   const [brief, setBrief] = useState<DecisionBriefData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [showActual, setShowActual] = useState<boolean>(true);
+  const [showActual, setShowActual] = useState<boolean>(false);
   const [hover, setHover] = useState<number | null>(null);
 
   useEffect(() => {
@@ -50,6 +41,18 @@ export const DecisionBrief: React.FC<Props> = ({ cutoffTime }) => {
       cancelled = true;
     };
   }, [date, cutoffTime]);
+
+  const stats = useMemo(() => {
+    if (!brief) return null;
+    const p = brief.periods;
+    const pick = (f: (r: (typeof p)[number]) => number | null) =>
+      p.map(f).filter((v): v is number => v !== null);
+    return {
+      lower: mean(pick((r) => r.lowerMW)),
+      upper: mean(pick((r) => r.upperMW)),
+      actual: mean(pick((r) => r.actualMW)),
+    };
+  }, [brief]);
 
   const chart = useMemo(() => {
     if (!brief) return null;
@@ -71,7 +74,7 @@ export const DecisionBrief: React.FC<Props> = ({ cutoffTime }) => {
          ...p.map((_, i) => `${x(p.length - 1 - i)},${y(p[p.length - 1 - i].lowerMW as number)}`)].join(' ')
       : null;
     const ticks = Array.from({ length: yMax / 2000 + 1 }, (_, i) => i * 2000);
-    return { p, x, y, line, band, ticks };
+    return { x, y, line, band, ticks };
   }, [brief, showActual]);
 
   const hovered = brief && hover !== null ? brief.periods[hover] : null;
@@ -83,193 +86,181 @@ export const DecisionBrief: React.FC<Props> = ({ cutoffTime }) => {
     setHover(Math.min(brief.periods.length - 1, Math.max(0, Math.round(frac * (brief.periods.length - 1)))));
   };
 
+  const biasWord = brief && brief.estimatedBiasMW >= 0 ? 'too high' : 'too low';
+
   return (
-    <section aria-label="Decision brief" className="space-y-4">
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-slate-900/90 border border-slate-800">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Previous delivery day"
-            disabled={date <= MIN_DATE}
-            onClick={() => setDate(shiftDate(date, -1))}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <label className="text-xs font-mono text-slate-400 flex items-center gap-2">
+    <section aria-label="Decision for one delivery day" className="space-y-6">
+      {/* Day picker */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button" aria-label="Previous day" disabled={date <= MIN_DATE}
+          onClick={() => setDate(shiftDate(date, -1))}
+          className="rounded-full border border-slate-300 bg-white p-2 hover:bg-slate-100 disabled:opacity-30 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div>
+          <label className="block text-xs font-medium uppercase tracking-wide text-slate-500" htmlFor="delivery-day">
             Delivery day
-            <input
-              type="date"
-              value={date}
-              min={MIN_DATE}
-              max={MAX_DATE}
-              onChange={(e) => e.target.value && setDate(e.target.value)}
-              className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
           </label>
-          <button
-            type="button"
-            aria-label="Next delivery day"
-            disabled={date >= MAX_DATE}
-            onClick={() => setDate(shiftDate(date, 1))}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <input
+            id="delivery-day" type="date" value={date} min={MIN_DATE} max={MAX_DATE}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
+        <button
+          type="button" aria-label="Next day" disabled={date >= MAX_DATE}
+          onClick={() => setDate(shiftDate(date, 1))}
+          className="rounded-full border border-slate-300 bg-white p-2 hover:bg-slate-100 disabled:opacity-30 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
         {brief && (
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-            <Clock className="w-4 h-4 text-teal-400" />
-            Decision taken {fmtUtc(brief.decisionTimestamp)} (UK = UTC in January)
-          </div>
+          <p className="ml-auto text-sm text-slate-600">
+            Buying for <strong>{fmtDay(brief.deliveryDate)}</strong>, decided {fmtUtc(brief.decisionTimestamp)}
+          </p>
         )}
-        <label className="ml-auto flex items-center gap-2 text-xs font-mono text-slate-400 cursor-pointer">
-          <input type="checkbox" checked={showActual} onChange={(e) => setShowActual(e.target.checked)} />
-          Show actual (backtest only)
-        </label>
       </div>
 
-      {error && (
-        <div role="alert" className="p-3 rounded-xl bg-rose-950/50 border border-rose-800 text-rose-200 text-sm flex gap-2">
-          <AlertTriangle className="w-5 h-5 shrink-0" /> {error}
-        </div>
+      {error && <ErrorBanner message={error} />}
+      {loading && !brief && (
+        <div className="space-y-4"><Skeleton className="h-16" /><Skeleton className="h-80" /></div>
       )}
 
-      {loading && !brief && <div className="h-80 rounded-xl bg-slate-900/60 border border-slate-800 animate-pulse" />}
-
-      {brief && (
+      {brief && stats && chart && (
         <>
-          {/* Latest-run banner: answers "which forecast do I actually have?" */}
-          <div className="p-4 rounded-xl bg-teal-950/30 border border-teal-800/60 text-sm text-teal-100">
-            Latest WINDFOR run available at the cutoff: <strong>{fmtUtc(brief.latestPublishTime)}</strong>
-            {brief.forecastRunsUsed > 1 && <> (runs used span from {fmtUtc(brief.earliestPublishTime)})</>}.
-            Anything published later is not available to the buyer and is excluded.
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-900">
+            The forecast you would have had: published <strong>{fmtUtc(brief.latestPublishTime)}</strong>, the latest
+            one available before the decision time. Anything published later is not used.
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Tile label="Mean forecast" value={`${fmtMW(brief.meanForecastMW)} MW`} note="Latest run at cutoff" />
-            <Tile
-              label="Bias-corrected mean"
-              value={brief.hasHistory ? `${fmtMW(brief.meanCorrectedMW)} MW` : '–'}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Stat
+              label="Published forecast (day average)"
+              value={fmtMW(brief.meanForecastMW)} unit="MW"
+              note="What the latest available forecast says for the day."
+            />
+            <Stat
+              label="Adjusted forecast"
+              tone="good"
+              value={brief.hasHistory ? fmtMW(brief.meanCorrectedMW) : '–'}
+              unit={brief.hasHistory ? 'MW' : undefined}
               note={
                 brief.hasHistory
-                  ? `Forecast minus ${fmtMW(brief.estimatedBiasMW)} MW typical over-forecast (last ${brief.lookbackDays} days)`
-                  : 'Needs one full prior day of actuals'
+                  ? `Forecasts were about ${fmtMW(Math.abs(brief.estimatedBiasMW))} MW ${biasWord} over the previous ${brief.lookbackDays} days, so this corrects for it.`
+                  : 'Needs at least one full day of earlier results, which the first delivery days do not have.'
               }
             />
-            <Tile
-              label="Forecast error today (MAE)"
-              value={`${fmtMW(brief.rawMaeMW)} MW`}
-              note={brief.hasHistory ? `${fmtMW(brief.correctedMaeMW)} MW after bias correction` : 'Backtest, after delivery'}
-            />
-            <Tile
-              label="Band coverage today"
-              value={brief.bandCoveragePercent === null ? '–' : `${brief.bandCoveragePercent}%`}
-              note="Actuals inside P10–P90 band"
+            <Stat
+              label="Likely range (day average)"
+              value={brief.hasHistory ? `${fmtMW(stats.lower)} – ${fmtMW(stats.upper)}` : '–'}
+              unit={brief.hasHistory ? 'MW' : undefined}
+              note="Where actual wind output has usually landed relative to the adjusted forecast."
             />
           </div>
 
-          {!brief.hasHistory && (
-            <div role="status" className="p-3 rounded-xl bg-amber-950/30 border border-amber-800/60 text-amber-200 text-xs">
-              Fewer than one full day of actuals existed at decision time (actuals are only known up to D-2), so
-              only the raw forecast is shown.
+          <Card className="p-4 sm:p-6">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-semibold">Wind generation across the day</h2>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={showActual} onChange={(e) => setShowActual(e.target.checked)} />
+                Show what actually happened
+              </label>
             </div>
-          )}
 
-          {/* Chart */}
-          {chart && (
-            <div className="rounded-xl bg-slate-900/90 border border-slate-800 p-3">
-              <svg
-                viewBox={`0 0 ${W} ${H}`}
-                className="w-full h-auto"
-                role="img"
-                aria-label={`Forecast versus actual wind generation for ${brief.deliveryDate}`}
-              >
-                {chart.ticks.map((t) => (
-                  <g key={t}>
-                    <line x1={M.left} x2={W - M.right} y1={chart.y(t)} y2={chart.y(t)} stroke="#1e293b" />
-                    <text x={M.left - 8} y={chart.y(t) + 4} textAnchor="end" fontSize="10" fill="#94a3b8">
-                      {(t / 1000).toFixed(0)} GW
-                    </text>
-                  </g>
-                ))}
-                {[0, 6, 12, 18, 24, 30, 36, 42, 47].map((i) => (
-                  <text key={i} x={chart.x(i)} y={H - 12} textAnchor="middle" fontSize="10" fill="#94a3b8">
-                    {String(Math.floor(i / 2)).padStart(2, '0')}:{i % 2 ? '30' : '00'}
+            <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img"
+              aria-label={`Forecast versus actual wind generation for ${brief.deliveryDate}`}>
+              {chart.ticks.map((t) => (
+                <g key={t}>
+                  <line x1={M.left} x2={W - M.right} y1={chart.y(t)} y2={chart.y(t)} stroke="#e2e8f0" />
+                  <text x={M.left - 8} y={chart.y(t) + 4} textAnchor="end" fontSize="11" fill="#64748b">
+                    {(t / 1000).toFixed(0)} GW
                   </text>
-                ))}
-                {chart.band && <polygon points={chart.band} fill="#14b8a6" opacity="0.15" />}
-                <polyline points={chart.line((r) => r.forecastMW)} fill="none" stroke="#fbbf24" strokeWidth="2" />
-                {brief.hasHistory && (
-                  <polyline points={chart.line((r) => r.correctedForecastMW)} fill="none" stroke="#2dd4bf" strokeWidth="2" />
-                )}
-                {showActual && (
-                  <polyline points={chart.line((r) => r.actualMW)} fill="none" stroke="#f8fafc" strokeWidth="1.5" strokeDasharray="4 3" />
-                )}
-                {hover !== null && (
-                  <line x1={chart.x(hover)} x2={chart.x(hover)} y1={M.top} y2={H - M.bottom} stroke="#475569" />
-                )}
-                <rect
-                  x={M.left} y={M.top} width={W - M.left - M.right} height={H - M.top - M.bottom}
-                  fill="transparent" onMouseMove={onMove} onMouseLeave={() => setHover(null)}
-                />
-              </svg>
+                </g>
+              ))}
+              {[0, 6, 12, 18, 24, 30, 36, 42, 47].map((i) => (
+                <text key={i} x={chart.x(i)} y={H - 12} textAnchor="middle" fontSize="11" fill="#64748b">
+                  {String(Math.floor(i / 2)).padStart(2, '0')}:{i % 2 ? '30' : '00'}
+                </text>
+              ))}
+              {chart.band && <polygon points={chart.band} fill={COLORS.adjusted} opacity="0.14" />}
+              <polyline points={chart.line((r) => r.forecastMW)} fill="none" stroke={COLORS.forecast} strokeWidth="2.5" />
+              {brief.hasHistory && (
+                <polyline points={chart.line((r) => r.correctedForecastMW)} fill="none" stroke={COLORS.adjusted} strokeWidth="2.5" />
+              )}
+              {showActual && (
+                <polyline points={chart.line((r) => r.actualMW)} fill="none" stroke={COLORS.actual} strokeWidth="2" strokeDasharray="5 4" />
+              )}
+              {hover !== null && (
+                <line x1={chart.x(hover)} x2={chart.x(hover)} y1={M.top} y2={H - M.bottom} stroke="#94a3b8" />
+              )}
+              <rect x={M.left} y={M.top} width={W - M.left - M.right} height={H - M.top - M.bottom}
+                fill="transparent" onMouseMove={onMove} onMouseLeave={() => setHover(null)} />
+            </svg>
 
-              <div className="flex flex-wrap gap-x-5 gap-y-1 px-2 pt-1 text-[11px] font-mono text-slate-400">
-                <Legend color="#fbbf24" label="Forecast at cutoff (raw)" />
-                {brief.hasHistory && <Legend color="#2dd4bf" label="Bias-corrected" />}
-                {brief.hasHistory && <Legend color="#14b8a6" label="P10–P90 band" faded />}
-                {showActual && <Legend color="#f8fafc" label="Actual (FUELHH)" dashed />}
-              </div>
+            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
+              <Legend color={COLORS.forecast} label="Published forecast" />
+              {brief.hasHistory && <Legend color={COLORS.adjusted} label="Adjusted forecast" />}
+              {brief.hasHistory && <Legend color={COLORS.adjusted} label="Likely range" faded />}
+              {showActual && <Legend color={COLORS.actual} label="Actual" dashed />}
+            </div>
 
-              <div className="min-h-[2.5rem] px-2 pt-2 text-xs font-mono text-slate-300" aria-live="polite">
-                {hovered ? (
-                  <>
-                    SP{hovered.settlementPeriod} · {fmtUtc(hovered.startTime)} · forecast {fmtMW(hovered.forecastMW)} MW
-                    {brief.hasHistory && <> · corrected {fmtMW(hovered.correctedForecastMW)} MW · band {fmtMW(hovered.lowerMW)}–{fmtMW(hovered.upperMW)} MW</>}
-                    {showActual && <> · actual {fmtMW(hovered.actualMW)} MW</>}
-                    <br />
-                    <span className="text-slate-500">Forecast run published {fmtUtc(hovered.publishTime)}</span>
-                  </>
-                ) : (
-                  <span className="text-slate-500">Hover the chart for half-hour detail.</span>
-                )}
-              </div>
+            <div className="mt-3 min-h-[2.5rem] text-sm text-slate-700" aria-live="polite">
+              {hovered ? (
+                <>
+                  <strong>{fmtUtc(hovered.startTime).replace(' UTC', '')}</strong>: forecast {fmtMW(hovered.forecastMW)} MW
+                  {brief.hasHistory && <>, adjusted {fmtMW(hovered.correctedForecastMW)} MW (range {fmtMW(hovered.lowerMW)} – {fmtMW(hovered.upperMW)})</>}
+                  {showActual && <>, actual {fmtMW(hovered.actualMW)} MW</>}
+                </>
+              ) : (
+                <span className="text-slate-400">Hover over the chart to see each half-hour.</span>
+              )}
+            </div>
+
+            {showActual && stats.actual !== null && (
+              <p className="mt-2 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                Hindsight check: actual average was <strong>{fmtMW(stats.actual)} MW</strong>. The published forecast
+                missed by {fmtMW(brief.rawMaeMW)} MW on average
+                {brief.hasHistory && <>; the adjusted forecast by {fmtMW(brief.correctedMaeMW)} MW</>}.
+              </p>
+            )}
+          </Card>
+
+          {!brief.hasHistory && (
+            <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Results are only known up to two days before delivery, so for the first delivery days there is not enough
+              history to adjust the forecast. Only the published forecast is shown.
             </div>
           )}
 
-          <p className="text-[11px] leading-relaxed text-slate-500">
-            Method: the bias estimate is the mean forecast error over the previous {brief.lookbackDays} days of actuals
-            available on D-1 (up to D-2). Band widths are the P10/P90 of corrected-forecast errors over all history
-            available at that time. WINDFOR is hourly, so each :30 half-hour uses its hour&apos;s forecast. Actuals are shown only to
-            backtest the method; they are not known when the decision is made.
-          </p>
+          <details className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
+            <summary className="cursor-pointer font-medium text-slate-800">How this is calculated</summary>
+            <p className="mt-3 leading-relaxed">
+              The adjustment is the average forecast error over the previous {brief.lookbackDays} days of results that
+              are known at decision time (up to two days before delivery). The likely range comes from the 10th to
+              90th percentile of errors over all results known at that time. The forecast data is hourly, so each
+              half-hour uses the forecast for its hour. Actual output is shown only to check the method; it is not
+              known when the decision is made.
+            </p>
+          </details>
         </>
       )}
     </section>
   );
 };
 
-const Tile: React.FC<{ label: string; value: string; note: string }> = ({ label, value, note }) => (
-  <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
-    <div className="text-xs font-medium text-slate-400">{label}</div>
-    <div className="text-xl font-bold font-mono text-white my-1">{value}</div>
-    <div className="text-[11px] leading-snug text-slate-500">{note}</div>
-  </div>
-);
-
 const Legend: React.FC<{ color: string; label: string; dashed?: boolean; faded?: boolean }> = ({
   color, label, dashed, faded,
 }) => (
-  <span className="flex items-center gap-1.5">
+  <span className="flex items-center gap-2">
     <span
-      className="inline-block w-5"
+      className="inline-block w-6"
       style={{
-        height: faded ? 8 : 0,
-        borderTop: faded ? undefined : `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
+        height: faded ? 10 : 0,
+        borderTop: faded ? undefined : `3px ${dashed ? 'dashed' : 'solid'} ${color}`,
         background: faded ? color : undefined,
-        opacity: faded ? 0.3 : 1,
+        opacity: faded ? 0.2 : 1,
       }}
     />
     {label}
