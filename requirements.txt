@@ -1,0 +1,6 @@
+# Runtime dependencies (used by Docker and Vercel). Versions are the ones the tests ran against.
+fastapi==0.162.0
+uvicorn==0.54.0
+pandas==3.0.2
+numpy==2.4.4
+pydantic==2.14.1
