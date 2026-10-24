@@ -1,6 +1,6 @@
-fastapi>=0.110.0
-uvicorn>=0.28.0
-pandas>=2.2.0
-pydantic>=2.6.0
-httpx>=0.27.0
-pytest>=8.0.0
+# Runtime dependencies (used by Docker and Vercel). Versions are the ones the tests ran against.
+fastapi==0.162.0
+uvicorn==0.54.0
+pandas==3.0.2
+numpy==2.4.4
+pydantic==2.14.1

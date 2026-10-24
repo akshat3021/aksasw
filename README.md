@@ -60,12 +60,13 @@ python scripts/explore.py    # data profiling report (resolution, horizons, gaps
 ```
 
 ### Deploy to Vercel
-Import the repo in Vercel (no env vars needed). `vercel.json` builds the React app and runs FastAPI from `api/index.py`.
+Import the repo in Vercel (no env vars needed). `vercel.json` defines two services: the Vite frontend served at `/`, and the FastAPI backend (`backend/main.py`) served under `/api`.
 
 ## Repository layout
 
 ```
-api/index.py              Vercel serverless entry (exposes the FastAPI app)
+backend/main.py             Vercel service entrypoint (re-exports the FastAPI app)
+backend/requirements.txt    Runtime Python dependencies (used by Docker and Vercel)
 backend/app/
   main.py                 FastAPI routes, input validation, CORS, static serving
   forecast_service.py     Core rule: latest forecast <= D-1 cutoff; merge with actuals; cached
@@ -80,7 +81,7 @@ frontend/src/             React + TypeScript (Vite, Tailwind)
 scripts/ingest.py         Elexon → JSON cache (chunked ≤7 days, retries, validation)
 scripts/explore.py        Data exploration
 docs/                     Data findings; video script
-Dockerfile, docker-compose.yml, vercel.json, requirements*.txt
+Dockerfile, docker-compose.yml, vercel.json (frontend + backend services), requirements-dev.txt
 .agents/rules/main.md     Project rules given to the AI coding assistant
 ```
 
