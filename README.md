@@ -5,9 +5,13 @@ A web app for a GB utility's day-ahead buying team. It answers two questions usi
 1. **Which wind forecast do I actually have when I must decide?** The latest `WINDFOR` run published at or before the D-1 cutoff (default 09:00 UK time).
 2. **How wrong is it, in numbers I can plan around?** MAE, RMSE, bias, tail errors (P90/P95), and a bias-corrected view with a P10-P90 band.
 
-- **Live app:** https://aksasw.vercel.app
-- **Demo video:** `<ADD UNLISTED YOUTUBE URL HERE>`
+## Project Links
 
+- **Live Application:** https://aksasw.vercel.app
+- **GitHub Repository:** https://github.com/jksaawr/jksaawr
+- **Video 1 — Client Presentation:** https://youtu.be/2PgTsFTv3Es
+- **Video 2 — Technical Review:** https://youtu.be/JsNoIMij9kc
+- 
 ## Key assumptions (please read)
 
 | Topic | Decision |
