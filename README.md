@@ -8,7 +8,7 @@ A web app for a GB utility's day-ahead buying team. It answers two questions usi
 ## Project Links
 
 - **Live Application:** https://aksasw.vercel.app
-- **GitHub Repository:** https://github.com/jksaawr/jksaawr
+- **GitHub Repository:** https://github.com/akshat3021/jksaawr
 - **Video 1 — Client Presentation:** https://youtu.be/2PgTsFTv3Es
 - **Video 2 — Technical Review:** https://youtu.be/JsNoIMij9kc
 - 
