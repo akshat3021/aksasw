@@ -139,8 +139,32 @@ export const AccuracyView: React.FC<{ cutoffTime: string }> = ({ cutoffTime }) =
               )}
             </ul>
           </Card>
+
+          <details className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
+            <summary className="cursor-pointer font-medium text-slate-800">More metrics</summary>
+            <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+              <Metric label="Mean absolute error (MAE)" value={`${fmtMW(summary.maeMW)} MW`} />
+              <Metric label="Root mean square error (RMSE)" value={`${fmtMW(summary.rmseMW)} MW`} />
+              <Metric label="Mean error / bias (forecast − actual)" value={`${summary.biasMW > 0 ? '+' : ''}${fmtMW(summary.biasMW)} MW`} />
+              <Metric label="Error as % of actual output (WAPE)" value={`${summary.wapePercent}%`} />
+              <Metric label="Median miss (P50)" value={`${fmtMW(summary.p50AbsErrorMW)} MW`} />
+              <Metric label="90th / 95th percentile miss" value={`${fmtMW(summary.p90AbsErrorMW)} / ${fmtMW(summary.p95AbsErrorMW)} MW`} />
+              <Metric label="Half-hours compared" value={`${summary.matchedPeriods.toLocaleString('en-GB')} of ${summary.totalPeriods.toLocaleString('en-GB')}`} />
+              <Metric label="Forecast too high / too low" value={`${summary.overForecastPeriods.toLocaleString('en-GB')} / ${summary.underForecastPeriods.toLocaleString('en-GB')} half-hours`} />
+            </dl>
+            <p className="mt-3 text-xs text-slate-500">
+              Half-hours without an eligible forecast are left out of every metric; the count above shows if any were.
+            </p>
+          </details>
         </>
       )}
     </section>
   );
 };
+
+const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="flex justify-between gap-4 border-b border-slate-100 py-1">
+    <dt>{label}</dt>
+    <dd className="font-medium text-slate-900">{value}</dd>
+  </div>
+);

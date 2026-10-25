@@ -29,6 +29,35 @@ A web app for a GB utility's day-ahead buying team. It answers two questions usi
 - **Cutoff sensitivity** (API only, `/api/metrics/cutoff-sensitivity`): accuracy barely changes between 05:00 and 12:00, because few forecast runs land in that gap. A cutoff after gate closure is not actionable.
 - **Bias correction is not a guaranteed win:** it improves the month overall, but can be worse on some weeks (e.g. 2-8 Jan, when little history exists). The UI says so when it happens.
 
+## Architecture
+
+```
+Elexon BMRS API ──(scripts/ingest.py, run offline)──► backend/data/*.json   (cached, read-only at runtime)
+                                                              │
+Browser ◄── React UI (Vite, TypeScript) ◄── /api/* ◄── FastAPI + pandas ◄─┘
+                                                      1. pick latest forecast with publishTime ≤ D-1 cutoff
+                                                      2. align with 30-min actuals, compute errors
+                                                      3. metrics, bias-correction backtest, decision brief
+```
+
+- **Docker:** one image; FastAPI serves the API and the built React app on port 8000.
+- **Vercel:** two services in one project (`vercel.json`): the Vite frontend at `/` and the FastAPI backend under `/api`.
+- **Why a cache, not live calls:** the study window is fixed (January 2026), so results are deterministic, fast and do not depend on Elexon being reachable during review.
+
+## Data quality and missing data
+
+- **At ingestion** (`scripts/ingest.py`): requests are chunked to the API's 7-day limit with retries; timestamps are normalised to UTC; duplicates are dropped; the run fails loudly if a delivery day does not have exactly 48 settlement periods or if any value is null.
+- **At runtime:** a half-hour with no eligible forecast is still returned, with `forecastMW = null`, and is excluded from every metric. `matchedPeriods` vs `totalPeriods` in `/api/metrics/summary` (shown under "More metrics" in the UI) makes any exclusion visible.
+- **Current data:** 1,488 actual half-hours (31 days × 48, no gaps or duplicates), 18,104 forecast rows (no nulls or duplicates). **All 1,488 half-hours have an eligible forecast.**
+- **Metrics are cross-checked:** `backend/tests/test_independent_metrics.py` recomputes MAE, RMSE and bias from the raw JSON using separate code and asserts they equal the API's numbers.
+
+## Verify the data against Elexon yourself
+
+Open these in a browser and compare with the app's "Half-hourly data" table for **15 Jan 2026** (decision made 14 Jan 09:00):
+
+- Actual, 00:00: `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELHH/stream?settlementDateFrom=2026-01-15&settlementDateTo=2026-01-15&fuelType=WIND` → expect `generation` **14602** for `startTime` 2026-01-15T00:00:00Z.
+- Forecast, same hour: `https://data.elexon.co.uk/bmrs/api/v1/datasets/WINDFOR/stream?publishDateTimeFrom=2026-01-14T07:00:00Z&publishDateTimeTo=2026-01-14T08:00:00Z` → expect `generation` **15834** for `startTime` 2026-01-15T00:00:00Z, `publishTime` 2026-01-14T07:30:00Z.
+
 ## Run it
 
 ### Docker (recommended)
@@ -50,7 +79,7 @@ cd frontend && npm ci && npm run dev      # http://localhost:5173 (proxies /api 
 
 ### Tests
 ```bash
-cd backend && python -m pytest -q          # 29 tests
+cd backend && python -m pytest -q          # 32 tests
 cd frontend && npm run build               # type-check + production build
 ```
 
@@ -75,7 +104,7 @@ backend/app/
   data_loader.py          Loads the JSON cache
   models.py, config.py    Pydantic response models; settings
 backend/data/             Cached Elexon data (FUELHH wind actuals, WINDFOR forecasts)
-backend/tests/            Pytest suite (selection rule, metrics, no-look-ahead, API)
+backend/tests/            Pytest suite (selection rule, metrics, no-look-ahead, independent metric check, API)
 frontend/src/             React + TypeScript (Vite, Tailwind)
   components/DecisionBrief.tsx   "Tomorrow's decision": forecast available at the cutoff, adjusted forecast, likely range
   components/AccuracyView.tsx    "How accurate is it?": plain-English error summary, daily error chart

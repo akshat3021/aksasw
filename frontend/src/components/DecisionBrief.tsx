@@ -227,6 +227,43 @@ export const DecisionBrief: React.FC<{ cutoffTime: string }> = ({ cutoffTime }) 
             )}
           </Card>
 
+          <details className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
+            <summary className="cursor-pointer font-medium text-slate-800">
+              Half-hourly data ({brief.periods.length} rows): forecast, when it was published, and actual
+            </summary>
+            <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-slate-200">
+              <table className="min-w-full text-right text-sm">
+                <thead className="sticky top-0 bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 text-left">Time (UTC)</th>
+                    <th scope="col" className="px-3 py-2">Forecast (MW)</th>
+                    <th scope="col" className="px-3 py-2">Forecast published</th>
+                    <th scope="col" className="px-3 py-2">Actual (MW)</th>
+                    <th scope="col" className="px-3 py-2">Error (MW)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {brief.periods.map((r) => {
+                    const err = r.forecastMW !== null && r.actualMW !== null ? r.forecastMW - r.actualMW : null;
+                    return (
+                      <tr key={r.startTime}>
+                        <td className="px-3 py-1.5 text-left font-medium">{r.startTime.slice(11, 16)}</td>
+                        <td className="px-3 py-1.5">{fmtMW(r.forecastMW)}</td>
+                        <td className="whitespace-nowrap px-3 py-1.5 text-slate-500">{fmtUtc(r.publishTime)}</td>
+                        <td className="px-3 py-1.5">{fmtMW(r.actualMW)}</td>
+                        <td className="px-3 py-1.5">{err === null ? '–' : `${err > 0 ? '+' : ''}${fmtMW(err)}`}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Error = forecast minus actual (positive means the forecast was too high). Each :30 row uses the forecast
+              for its hour, because the forecast data is hourly.
+            </p>
+          </details>
+
           {!brief.hasHistory && (
             <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               Results are only known up to two days before delivery, so for the first delivery days there is not enough
