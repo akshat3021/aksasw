@@ -11,7 +11,18 @@ A web app for a GB utility's day-ahead buying team. It answers two questions usi
 - **GitHub Repository:** https://github.com/akshat3021/jksaawr
 - **Video 1 — Client Presentation:** https://youtu.be/2PgTsFTv3Es
 - **Video 2 — Technical Review:** https://youtu.be/JsNoIMij9kc
-- 
+
+## AI Tools Disclosure
+
+AI tools were used during the development of WindDesk:
+
+- **Google Antigravity:** Assisted with code generation and implementation.
+- **Claude:** Assisted with planning, code review, debugging, and analysis design.
+
+AI assistance was used as a development aid. I reviewed and tested the generated output, examined the implementation, and validated the analysis choices and results against the project's tests.
+
+I take responsibility for the submitted code, implementation decisions, and documented results.
+
 ## Key assumptions (please read)
 
 | Topic | Decision |
