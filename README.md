@@ -83,6 +83,8 @@ cd backend && python -m pytest -q          # 32 tests
 cd frontend && npm run build               # type-check + production build
 ```
 
+**CI** (`.github/workflows/ci.yml`) runs on every push: backend tests, the frontend build, and a Docker job that builds the image, starts the container, and checks `/api/health`, the UI, the headline metric, a decision brief and input validation. See the *Actions* tab for the latest run.
+
 ### Refresh the data (optional; needs internet)
 ```bash
 python scripts/ingest.py     # overwrites backend/data/*.json from the Elexon API

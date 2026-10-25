@@ -11,5 +11,5 @@
 1. **Architecture (45 s).** React/Vite UI, FastAPI backend, JSON cache of Elexon data. Docker image serves both; on Vercel they are two services (`/` and `/api`). No database or auth by design.
 2. **Core rule (90 s).** Open `forecast_service.py`: vectorised join, `publishTime <= D-1 cutoff`, exact-then-hourly match. Show the tests: post-cutoff ignored, negative horizon ignored, real-data assertion.
 3. **Analysis choices (75 s).** Step-hold for :30 half-hours; MAE/RMSE/WAPE rather than MAPE (unstable near zero wind); percentiles for tail risk; bias correction uses only results up to two days before delivery (tested for no look-ahead); band calibration check (69% to 75%).
-4. **Quality practices (45 s).** 32 tests, input validation, CORS allow-list, no stack traces, strict TypeScript build, accessible controls.
+4. **Quality practices (45 s).** 32 tests plus a CI pipeline that also builds and smoke-tests the Docker image, input validation, CORS allow-list, no stack traces, strict TypeScript build, accessible controls.
 5. **Limitations and AI use (30 s).** Possible dataset-definition gap behind the offset; only 4 weeks of data; Antigravity and Claude used and reviewed.
